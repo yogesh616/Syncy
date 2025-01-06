@@ -987,7 +987,7 @@ useEffect(() => {
                 e.stopPropagation(); // Prevent event propagation to avoid triggering other buttons
                 toggleAddToPlaylistDropDown(song.id);
               }}
-              className="pe-3 text-white shadow-md ml-2 flex items-center justify-center"
+              className="pe-3 text-slate-700 dark:text-white shadow-md ml-2 flex items-center justify-center"
             >
               <i className="fa-solid fa-ellipsis-vertical"></i>
             </button>
