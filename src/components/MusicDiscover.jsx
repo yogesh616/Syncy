@@ -1410,7 +1410,7 @@ const importPlaylistSongs = async (playlistId) => {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-12">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
