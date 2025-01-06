@@ -641,6 +641,7 @@ const createPlaylist = async (imageUrl) => {
       category: playlistCategory,
       imageUrl: imageUrl || null,
       userId: user.uid,
+      username: user.displayName, 
       createdAt: new Date(),
       songs: [],
     });
@@ -787,12 +788,17 @@ const sharePlaylist = (playlistId) => {
 
 const [isPlaylistSongsDrawerOpen, setPlaylistSongsDrawerOpen] = useState(false);
 const [isPlaylistCreationDrawerOpen, setPlaylistCreationDrawerOpen] = useState(false);
+const [isImportPlaylistOpen, setIsImportPlaylistOpen] = useState(false);
 
 const handlePlaylistSongsDrawer = () =>
   setPlaylistSongsDrawerOpen(!isPlaylistSongsDrawerOpen);
 
 const togglePlaylistCreationDrawer = () =>
   setPlaylistCreationDrawerOpen(!isPlaylistCreationDrawerOpen);
+
+const toggleImportPlaylistDrawer = () => {
+  setIsImportPlaylistOpen(!isImportPlaylistOpen);
+}
 
 
 
@@ -816,6 +822,39 @@ useEffect(() => {
 
   }
 }, [user]); // This effect runs whenever `user` changes
+
+function handleImportingPlaylist(e) {
+  if (e.key === 'Enter') {
+    let url = e.target.value;
+   const id = url.split('/')[4];
+    if (id) {
+      importPlaylistSongs(id);
+    }
+    
+  }
+}
+const [ importedSongs, setImportedSongs ] = useState([]);
+const [ importedPlaylist, setImportedPlaylist ] = useState([]);
+
+const importPlaylistSongs = async (playlistId) => {
+  try {
+    // Reference the playlist document directly by ID
+    const playlistRef = doc(db, "playlists", playlistId);
+    const playlistDoc = await getDoc(playlistRef);
+
+    if (playlistDoc.exists()) {
+      const playlist = playlistDoc.data();
+      setImportedPlaylist(playlist);
+      setImportedSongs(playlist.songs)
+      console.log("Playlist songs:", playlist);
+    } else {
+      console.error("No playlist found for the given playlist ID.");
+     setImportedSongs([]);
+    }
+  } catch (error) {
+    console.error("Error fetching playlist songs:", error);
+  }
+};
 
 
   return (
@@ -987,7 +1026,7 @@ useEffect(() => {
                 e.stopPropagation(); // Prevent event propagation to avoid triggering other buttons
                 toggleAddToPlaylistDropDown(song.id);
               }}
-              className="pe-3 text-white shadow-md ml-2 flex items-center justify-center"
+              className="pe-3 text-slate-700 dark:text-white shadow-md ml-2 flex items-center justify-center"
             >
               <i className="fa-solid fa-ellipsis-vertical"></i>
             </button>
@@ -1329,9 +1368,16 @@ useEffect(() => {
   <div>
     {user ? (
       <div>
+      <div className='flex  items-center justify-between'>
         <h3 className="mb-4 text-lg font-semibold">
           Playlists <i className="fa-solid fa-guitar ps-2 text-blue-300"></i>
         </h3>
+        <div className='mb-4 ring-slate-600 ring-1 p-1 px-2 rounded-lg cursor-pointer' onClick={toggleImportPlaylistDrawer}>
+        <span className='font-bold'> Import Playlist</span>
+       </div>
+      </div>
+
+        
 
         {/* List of Playlists */}
         {playlists.length > 0 ? (
@@ -1370,7 +1416,7 @@ useEffect(() => {
                       e.stopPropagation();
                       sharePlaylist(playlist.id);
                     }}
-                    className="text-gray-400 cursor-pointer hidden"
+                    className="text-gray-400 cursor-pointer"
                   >
                     <i className="fa-solid fa-share"></i>
                   </button>
@@ -1413,6 +1459,7 @@ useEffect(() => {
               <path d="M12 16V8" strokeWidth="1.5"></path>
             </svg>
           </button>
+
         </div>
 
         {/* Playlist Songs Drawer */}
@@ -1489,7 +1536,103 @@ useEffect(() => {
               className="w-full p-2 bg-gray-100 rounded-lg dark:bg-gray-800 dark:text-slate-400"
             />
           </div>
+
+          
         </div>
+
+        {/* Import Playlist Drawer */}
+
+        <div
+  className={`fixed bottom-0 left-0 w-full shadow-lg transform transition-transform duration-300 ${
+    isImportPlaylistOpen ? 'translate-y-0' : 'translate-y-full '
+  } bg-white dark:bg-zinc-900`}
+>
+  <div className="p-4 border-b border-gray-300 dark:border-gray-700">
+    <div className="flex justify-between items-center">
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-400">
+        Import Playlist
+      </h3>
+      <button onClick={toggleImportPlaylistDrawer}>
+        <i className="fa-solid fa-times text-gray-600 dark:text-gray-400"></i>
+      </button>
+    </div>
+  </div>
+  <div className="p-4 ">
+    <input
+      type="text"
+      placeholder="Paste playlist url here ..."
+      
+      
+      onKeyDown={handleImportingPlaylist}
+      className="w-full p-2 bg-gray-100 text-gray-700 placeholder-gray-400 rounded-lg  ring-1  ring-slate-600
+                 dark:bg-gray-800 dark:text-slate-400 dark:placeholder-gray-500"
+    />
+  </div>
+    {/* imported playlist songs */}
+       <div>
+       {importedSongs.length > 0 ? (
+             
+              <div>
+              <div >
+              <div
+                className="flex items-center justify-between p-2 bg-white rounded-lg shadow cursor-pointer dark:text-slate-400 dark:bg-zinc-900"
+              >
+                <div className="flex items-center">
+                  
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" color="#eabd11" fill="none">
+    <path d="M7 9.5C7 10.8807 5.88071 12 4.5 12C3.11929 12 2 10.8807 2 9.5C2 8.11929 3.11929 7 4.5 7C5.88071 7 7 8.11929 7 9.5ZM7 9.5V2C7.33333 2.5 7.6 4.6 10 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="10.5" cy="19.5" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+    <circle cx="20" cy="18" r="2" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M13 19.5L13 11C13 10.09 13 9.63502 13.2466 9.35248C13.4932 9.06993 13.9938 9.00163 14.9949 8.86504C18.0085 8.45385 20.2013 7.19797 21.3696 6.42937C21.6498 6.24509 21.7898 6.15295 21.8949 6.20961C22 6.26627 22 6.43179 22 6.76283V17.9259" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13 13C17.8 13 21 10.6667 22 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+</svg>
+                  <div className="ml-3">
+                    <h3 className='font-bold text-base'>{importedPlaylist.username}</h3>
+                    <h4 className="text-sm font-medium ">{importedPlaylist.name}</h4>
+                    <p className="text-sm text-gray-500">
+                      {importedPlaylist.songs.length} songs &nbsp; &nbsp;
+                      <span className="text-sm text-gray-400">{importedPlaylist.category}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  {}
+                </div>
+              </div>
+            </div>
+              
+               <ul className="space-y-3 px-3 overflow-y-auto h-96">
+                {importedSongs.map((song, index) => (
+                  <li
+                    key={index}
+                    
+                    className="flex items-center justify-between p-2 bg-gray-100 rounded-lg shadow dark:bg-gray-800"
+                  >
+                    <div className="flex items-center gap-2" 
+                    onClick={() => handleSongClick(song)}>
+                      <img
+                        src={song.imageUrl || song.image[1].link || song.albumArt || 'default_song_thumbnail.jpg'}
+                        alt="Song"
+                        className="w-10 h-10 rounded-lg"
+                      />
+                      <div>
+                        <p className="text-sm font-medium">{song.name}</p>
+                        <p className="text-xs text-gray-500">{song.artist}</p>
+                      </div>
+                    </div>
+                    
+                  </li>
+                ))}
+              </ul>
+             </div>
+            ) : (
+              <p className="text-center text-gray-500">No songs in this playlist</p>
+            )}
+       </div>  
+  
+        </div>
+
       </div>
     ) : (
       <div className="flex items-center flex-col gap-6 justify-center h-96">
