@@ -704,7 +704,7 @@ const getPlaylistSongs = async (playlistId, userId) => {
     if (!querySnapshot.empty) {
       const playlist = querySnapshot.docs[0].data();
       setPlaylistSongs(playlist.songs || []); // Set playlist songs
-      console.log("Playlist songs:", playlist.songs);
+    //  console.log("Playlist songs:", playlist.songs);
     } else {
       console.error("No playlist found for the given user and playlist ID.");
       setPlaylistSongs([]);
@@ -846,7 +846,7 @@ const importPlaylistSongs = async (playlistId) => {
       const playlist = playlistDoc.data();
       setImportedPlaylist(playlist);
       setImportedSongs(playlist.songs)
-      console.log("Playlist songs:", playlist);
+     // console.log("Playlist songs:", playlist);
     } else {
       console.error("No playlist found for the given playlist ID.");
      setImportedSongs([]);
