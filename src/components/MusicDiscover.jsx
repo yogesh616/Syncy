@@ -58,6 +58,21 @@ const MusicDiscover = () => {
   const [songUrl, setSongUrl] = useState(null);
   const base_url = import.meta.env.VITE_API_URL;
 
+  const [ recomandationSongs, setRecomandationSongs ] = useState([]);
+
+
+  async function FetchRecomandationSong(id = 'zDzWQVkb') {
+    try {
+      const res = await axios.get(`https://saavn-api-r2hu1.vercel.app/api/songs/${id}/suggestions`);
+      const result = await res.data.data;
+      setRecomandationSongs(result);
+      console.log('recomandation', result);
+    }
+    catch (error) {
+      console.error('Error fetching category songs:', error);
+    }
+  }
+
   const qualities = [
     { id: 0, label: 'Poor Quality' },
     { id: 1, label: 'Low Quality' },
@@ -418,6 +433,9 @@ const handleSongClick = (song) => {
     playSong(formattedSong);
     setIsPlayerVisible(true);
     setSongUrl(formattedSong.downloadUrl);
+    if (formattedSong.id) {
+      FetchRecomandationSong(formattedSong.id)
+    }
 
   } catch (error) {
     console.error('Error in handleSongClick:', error.message);
@@ -513,6 +531,7 @@ const handleSongClick = (song) => {
           formattedDuration: formatDuration(song.duration),
         }));
         setSongs(formattedSongs);
+        
       } catch (error) {
         console.error("Error fetching songs:", error);
       }
@@ -1955,6 +1974,7 @@ useEffect(() => {
 {currentSong && (
   <>
     <div className="flex items-center justify-between mt-2 relative">
+      
       <button
         onClick={() => setIsPlayerVisible(false)}
         className="w-10 h-10 rounded-full bg-gray-800 text-white shadow-md hover:bg-gray-700 ml-2"
@@ -1990,23 +2010,20 @@ useEffect(() => {
     </ul>
   </div>
 )}
-</div>
+      </div>
       <button
         onClick={() => ShareSong(currentSong)}
         className=" w-10 h-10 rounded-full bg-gray-800 text-white shadow-md hover:bg-gray-700 ml-2 flex items-center justify-center"
       >
         <i className="fa-solid fa-share"></i>
       </button>
-     
     
-
-
-     
     </div>
     
 
 
     <div className="flex flex-col items-center py-4">
+      <div className='flex flex-col items-center h-[23.4rem] overflow-y-auto'>
       <div className="flip-card w-72 h-72 rounded-lg shadow-lg">
         <div
           className={`flip-card-inner w-72 h-72 rounded-lg shadow-lg ${isFlipped ? 'rotate' : 'rotate-back'}`}
@@ -2028,12 +2045,67 @@ useEffect(() => {
            
            </div>
         </div>
+
+
+
       </div>
 
       <h3 className="text-2xl font-bold">{currentSong.title}</h3>
       <p className="text-gray-500 cursor-pointer" onClick={() => { setSearchQuery(currentSong.name); setIsPlayerVisible(false); }}>
         {currentSong.name}
       </p>
+      <div className="w-full px-4">
+      <h1 className="text-lg font-semibold mb-4">Recommendation</h1>
+
+      {/* Scrollable Container */}
+      <div className="relative">
+        <div className="flex overflow-x-auto pb-4 max-w-80 scrollbar-hide">
+          <div className="flex gap-4 min-w-min">
+            {recomandationSongs.length > 0 ? (
+              recomandationSongs.map((song, index) => (
+                <div key={index} className="flex-none w-24">
+                  <div
+                    className="relative cursor-pointer"
+                    onClick={() => handleSongClick(song)}
+                  >
+                    {/* Song Image */}
+                    <img
+                      src={song.image[2].url}
+                      alt="Popular Song"
+                      className="rounded-lg w-full aspect-square object-cover "
+                    />
+
+                    {/* Play/Pause Button Overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center w-full bg-gray-900 bg-opacity-50 h-9 rounded-b-lg">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePlayPause(song.downloadUrl[audioQuality].url);
+                        }}
+                        className="text-gray-400 hover:text-white transition-colors"
+                      >
+                        {isPlaying &&
+                        audioRef.current?.src === song.downloadUrl[audioQuality].url ? (
+                          <FaPause className="w-4 h-4" />
+                        ) : (
+                          <FaPlay className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="w-full flex justify-center">
+                <Loader />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+
+      </div>
 
       <div className="flex justify-between w-full mt-4">
         <button
