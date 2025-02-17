@@ -9,18 +9,22 @@ import { PlayerProvider } from './Context/Context.jsx'
 import { SleepProvider } from './Context/AutoSleepContext.jsx'
 
 import Playlist from './components/Playlist.jsx'
+import MobileOnly from './MobileOnly.jsx'
 
 createRoot(document.getElementById('root')).render(
-  <PlayerProvider>
+  <MobileOnly>
+    <PlayerProvider>
     <SleepProvider>
   
   <BrowserRouter>
   <Routes>
     <Route path="/" element={<App />} />
+    <Route path="/:songId" element={<App />} />
     <Route path="/player" element={<Player />} />
     <Route path="/playlist/:id" element={<Playlist />} />
   </Routes>
   </BrowserRouter>
   </SleepProvider>
   </PlayerProvider>
+  </MobileOnly>
 )

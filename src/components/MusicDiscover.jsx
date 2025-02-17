@@ -17,6 +17,7 @@ import './playlist.css'
 import box from '../assets/box.json'
 import Sleep from './Sleep';
 import Animation from './Animation';
+import { useParams } from 'react-router-dom';
 
 let myFavorites = [];
 
@@ -28,6 +29,11 @@ import { auth, provider, db } from '../firebase';
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc, arrayUnion, getDoc, arrayRemove } from 'firebase/firestore';
 
 // long press
+
+
+ // Convert to a component
+ 
+ 
 
 
 const MusicDiscover = () => {
@@ -218,6 +224,8 @@ const formatTime = (time) => {
 
 
 // useEffect to handle playback logic
+/*
+
 useEffect(() => {
   let blobUrl;
 
@@ -276,31 +284,152 @@ useEffect(() => {
   };
 }, [isPlaying, currentSong]);
 
+*/
+
+useEffect(() => {
+  let blobUrl;
+  let playPromise = null;
+
+  const setupAudio = async () => {
+    if (isPlaying && currentSong) {
+      try {
+        let sourceUrl;
+
+        // Handle different types of audio sources
+        if (currentSong.downloadUrl && typeof currentSong.downloadUrl === 'string') {
+          sourceUrl = currentSong.downloadUrl.startsWith('blob:') 
+            ? currentSong.downloadUrl 
+            : currentSong.downloadUrl;
+        } else if (currentSong.audioBlob) {
+          blobUrl = URL.createObjectURL(currentSong.audioBlob);
+          sourceUrl = blobUrl;
+        } else {
+          throw new Error('Invalid audio source.');
+        }
+
+        // Only set new source if it's different from current
+        if (audioRef.current.src !== sourceUrl) {
+          audioRef.current.src = sourceUrl;
+          // Wait for metadata to load
+          await new Promise((resolve) => {
+            const handleLoaded = () => {
+              audioRef.current.removeEventListener('loadedmetadata', handleLoaded);
+              resolve();
+            };
+            audioRef.current.addEventListener('loadedmetadata', handleLoaded);
+          });
+        }
+
+        // Ensure any previous play promise is resolved
+        if (playPromise) {
+          await playPromise;
+        }
+
+        // Start new playback
+        playPromise = audioRef.current.play();
+        await playPromise;
+        console.log('Playing audio');
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          console.log('Playback interrupted (expected)');
+        } else {
+          console.error('Error playing audio:', error);
+        }
+      }
+    } else {
+      // Handle pause
+      if (playPromise) {
+        await playPromise;
+      }
+      audioRef.current.pause();
+    }
+  };
+
+  setupAudio();
+
+  // Cleanup function
+  return () => {
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+  };
+}, [isPlaying, currentSong]);
 
 
 
      
    
-  
-    const handleSongClick = (song) => {
-      
-      const formattedSong = {
-        title: song.name,
-        name: song.primaryArtists,
-        albumArt: song.image[2].link || song.albumArt,
-        downloadUrl: song.downloadUrl[audioQuality].link || song.downloadUrl,  // Ensure this link exists
-      };
-      
-      setCurrentSong(formattedSong);  // Set the new song
-      playSong(formattedSong);  // Start playing the song
-      setIsPlayerVisible(true);  // Show the player UI
-      setSongUrl(formattedSong.downloadUrl);
+const handleSongClick = (song) => {
+  try {
+    if (!song) {
+      throw new Error('Invalid song object');
+    }
+
+   // console.log('handleSongClick raw song:', song);
+
+    // Helper function to safely access nested properties
+    const getDownloadUrl = (song) => {
+      if (song.downloadUrl) {
+        if (typeof song.downloadUrl === 'string') {
+          return song.downloadUrl;
+        }
+        if (song.downloadUrl[audioQuality]?.link) {
+          return song.downloadUrl[audioQuality].link;
+        }
+        if (song.downloadUrl[audioQuality]?.url) {
+          return song.downloadUrl[audioQuality].url;
+        }
+      }
+      return null;
     };
+
+    const getAlbumArt = (song) => {
+      if (song.image?.[2]?.link) return song.image[2].link;
+      if (song.image[2]?.url) return song.image[2].url;
+      if (song.albumArt) return song.albumArt;
+      
+      return null;
+    };
+
+    const formattedSong = {
+      id: song.id,
+     
+     
+      albumName: song.album.name,
+      duration: song.duration,
+      title: song.name || 'Unknown Title',
+      name: song.primaryArtists || 
+            (song.artists?.primary?.[0]?.name) || 
+            'Unknown Artist',
+      albumArt: getAlbumArt(song) || 'default-album-art.jpg',
+      downloadUrl: getDownloadUrl(song)
+    };
+
+    if (!formattedSong.downloadUrl) {
+      throw new Error('No valid download URL found for the song');
+    }
+
+   // console.log('handleSongClick Formatted Song:', formattedSong);
+
+    setCurrentSong(formattedSong);
+    playSong(formattedSong);
+    setIsPlayerVisible(true);
+    setSongUrl(formattedSong.downloadUrl);
+
+  } catch (error) {
+    console.error('Error in handleSongClick:', error.message);
+    // You might want to show an error message to the user here
+  }
+};
     
     
 
 
     const togglePlayPause = (song) => {
+      
       let sourceUrl;
     
       // For online songs, use the download URL
@@ -856,10 +985,45 @@ const importPlaylistSongs = async (playlistId) => {
   }
 };
 
+ const { songId } = useParams()
+ async function playSharedSong(id) {
+  try {
+      const getSong = await axios.get(`https://saavn.dev/api/songs?ids=${id}`);
+      if (getSong.data.data[0]) {
+        //  handleSongClick(getSong.data.data[0]);
+        const fetchedSong = getSong.data.data[0]
+       
+        handleSongClick(fetchedSong)
+      }
+  } catch (err) {
+      console.error('Error playing song:', err);
+  }
+}
+
+useEffect(() => {
+
+  if (songId !== undefined) {
+  //  playSharedSong(songId)
+  playSharedSong(songId)
+  }
+ }, []);
+
+
+ function ShareSong( song ) {
+  if (!song) return null;
+  const link = `${window.location.origin}/${song.id}`;
+  navigator.clipboard.writeText(link);
+  alert("Song link copied to clipboard!");
+
+  
+}
+
+
+
 
   return (
     <div className="flex flex-col items-center justify-between min-h-screen px-4 py-2 bg-gray-50 dark:text-slate-400 dark:bg-zinc-900">
-    
+   
     
       <div className="w-full max-w-md">
         <div className='w-full overflow-x-auto sticky top-0 bg-gray-50  dark:text-slate-400 dark:bg-zinc-900' >
@@ -1296,7 +1460,7 @@ const importPlaylistSongs = async (playlistId) => {
   </span>
 
   {/* Drawer Toggle Button */}
-  <button className="button hidden" onClick={toggleCategoryDrawer}>
+  <button className="button hidden " onClick={toggleCategoryDrawer}>
     <svg className="svgIcon" viewBox="0 0 384 512">
       <path d="M214.6 41.4c-12.5-12.5-32.8-12.5-45.3 0l-160 160c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L160 141.2V448c0 17.7 14.3 32 32 32s32-14.3 32-32V141.2L329.4 246.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-160-160z"></path>
     </svg>
@@ -1679,7 +1843,7 @@ const importPlaylistSongs = async (playlistId) => {
       <ul className="space-y-2 font-medium">
          <li >
            { user && (
-             <a href="#" className=" flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+             <a   className=" flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
              <svg className="w-5 h-5 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 22 21">
                 <path d="M16.975 11H10V4.025a1 1 0 0 0-1.066-.998 8.5 8.5 0 1 0 9.039 9.039.999.999 0 0 0-1-1.066h.002Z"/>
                 <path d="M12.5 0c-.157 0-.311.01-.565.027A1 1 0 0 0 11 1.02V10h8.975a1 1 0 0 0 1-.935c.013-.188.028-.374.028-.565A8.51 8.51 0 0 0 12.5 0Z"/>
@@ -1704,7 +1868,7 @@ const importPlaylistSongs = async (playlistId) => {
             {qualities.map((quality) => (
         <li key={quality.id}>
           <a
-            href="#"
+             
             onClick={() => handleQualityChange(quality.id)}
             className="flex items-center w-full p-2 text-gray-900 transition-all duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
           >
@@ -1740,7 +1904,7 @@ const importPlaylistSongs = async (playlistId) => {
          </li>
         
          <li className='' onClick={user ? HandleSignOut : HandleGoogleLogin}>
-            <a href="#" className="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+            <a   className="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
               <span className="flex-shrink-0 w-5 h-5 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white">
                <i className="fa-solid fa-user"></i>
               </span>
@@ -1750,7 +1914,7 @@ const importPlaylistSongs = async (playlistId) => {
          </li>
          
          <li>
-            <a href="#" className="flex items-center p-2 gap-3 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+            <a   className="flex items-center p-2 gap-3 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
                <svg className="flex-shrink-0 w-5 h-5 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M5 5V.13a2.96 2.96 0 0 0-1.293.749L.879 3.707A2.96 2.96 0 0 0 .13 5H5Z"/>
                   <path d="M6.737 11.061a2.961 2.961 0 0 1 .81-1.515l6.117-6.116A4.839 4.839 0 0 1 16 2.141V2a1.97 1.97 0 0 0-1.933-2H7v5a2 2 0 0 1-2 2H0v11a1.969 1.969 0 0 0 1.933 2h12.134A1.97 1.97 0 0 0 16 18v-3.093l-1.546 1.546c-.413.413-.94.695-1.513.81l-3.4.679a2.947 2.947 0 0 1-1.85-.227 2.96 2.96 0 0 1-1.635-3.257l.681-3.397Z"/>
@@ -1828,10 +1992,10 @@ const importPlaylistSongs = async (playlistId) => {
 )}
 </div>
       <button
-        onClick={toggleAddToPlaylistDropDown}
-        className="hidden w-10 h-10 rounded-full bg-gray-800 text-white shadow-md hover:bg-gray-700 ml-2 flex items-center justify-center"
+        onClick={() => ShareSong(currentSong)}
+        className=" w-10 h-10 rounded-full bg-gray-800 text-white shadow-md hover:bg-gray-700 ml-2 flex items-center justify-center"
       >
-        <i className="fa-solid fa-ellipsis-vertical"></i>
+        <i className="fa-solid fa-share"></i>
       </button>
      
     
