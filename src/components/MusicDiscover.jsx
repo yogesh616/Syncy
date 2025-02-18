@@ -66,7 +66,7 @@ const MusicDiscover = () => {
       const res = await axios.get(`https://saavn-api-r2hu1.vercel.app/api/songs/${id}/suggestions`);
       const result = await res.data.data;
       setRecomandationSongs(result);
-      console.log('recomandation', result);
+    
     }
     catch (error) {
       console.error('Error fetching category songs:', error);
@@ -1028,14 +1028,26 @@ useEffect(() => {
  }, []);
 
 
- function ShareSong( song ) {
+ async function ShareSong(song) {
   if (!song) return null;
-  const link = `${window.location.origin}/${song.id}`;
-  navigator.clipboard.writeText(link);
-  alert("Song link copied to clipboard!");
+  console.log(song);
 
-  
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: song.title,
+        text: `Listen  ${song.title} on Syncy`,
+        url: `${window.location.origin}/${song.id}` // Ensure a valid absolute URL
+      });
+      console.log("Successful share");
+    } catch (error) {
+      console.log("Error sharing", error);
+    }
+  } else {
+    console.log("Web Share API is not supported in this browser.");
+  }
 }
+
 
 
 
