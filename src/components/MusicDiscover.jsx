@@ -520,22 +520,46 @@ const handleSongClick = (song) => {
       audioRef.current.currentTime = newTime;
       setProgress(e.target.value);
     };
+
+    // Caching for performance
+    const CACHE_NAME = 'musicCache-v1';
     
     const fetchData = useCallback(async function getData() {
       try {
-        const search = searchQuery || 'mitraz' 
-        const response  = await axios.get(`${base_url}/search/songs?query=${search}&limit=20&page=1`);
+        const search = searchQuery || 'mitraz';
+        const cacheKey = `/search/songs?query=${search}&limit=20&page=1`;
+        
+        // Open Cache Storage
+        const cache = await caches.open(CACHE_NAME);
+        
+        // Check if data is in cache
+        const cachedResponse = await cache.match(cacheKey);
+        if (cachedResponse) {
+          console.log('Serving from cache', search);
+          const cachedData = await cachedResponse.json();
+          setSongs(
+            cachedData.map((song) => ({
+              ...song, formattedDuration: formatDuration(song.duration)
+            }))
+          )
+          return;
+        }
+        console.log( `Serving from Api`, search)
+        const response  = await axios.get(`${base_url}${cacheKey}`);
         const data =  response.data;
         const formattedSongs = data.data.results.map((song) => ({
           ...song,
           formattedDuration: formatDuration(song.duration),
         }));
+        // Store response in cache
+        cache.put(cacheKey, new Response(JSON.stringify(data.data.results)))
         setSongs(formattedSongs);
         
       } catch (error) {
         console.error("Error fetching songs:", error);
       }
     }, [searchQuery])
+
     const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
 
 useEffect(() => {
@@ -678,11 +702,28 @@ const handleDownload = (song) => {
       })
       .catch(err => console.error('Error downloading the file:', err));
 };
-
+const [isScrolling, setIsScrolling] = useState(false);
 const swipeHandlers = useSwipeable({
-  onSwipedDown: () => setIsPlayerVisible(false),  // Hide player on swipe down
-  onSwipedUp: () => setIsPlayerVisible(true),    // Show player on swipe up
+  onSwipedDown: (eventData) => {
+    if (!isScrolling) {
+      setIsPlayerVisible(false);
+    }
+  }
 });
+
+const handleTouchStart = (e) => {
+  const target = e.target.closest('.scrollable-container'); // Ensure it is the scrollable div
+  if (target) {
+    setIsScrolling(target.scrollTop > 0); // Set scrolling state if not at the top
+  }
+};
+
+const handleTouchMove = (e) => {
+  const target = e.target.closest('.scrollable-container');
+  if (target) {
+    setIsScrolling(target.scrollTop > 0);
+  }
+};
  
 const [isDrawerOpen, setIsDrawerOpen] = useState(isOpen);
 
@@ -1020,17 +1061,28 @@ const importPlaylistSongs = async (playlistId) => {
 }
 
 useEffect(() => {
+  if (songId) {
+    const playAfterUserInteraction = () => {
+      playSharedSong(songId);
+      document.removeEventListener("click", playAfterUserInteraction);
+      document.removeEventListener("scroll", playAfterUserInteraction);
+    };
 
-  if (songId !== undefined) {
-  //  playSharedSong(songId)
-  playSharedSong(songId)
+    document.addEventListener("click", playAfterUserInteraction);
+    document.addEventListener("scroll", playAfterUserInteraction);
+
+    return () => {
+      document.removeEventListener("click", playAfterUserInteraction);
+      document.removeEventListener("scroll", playAfterUserInteraction);
+    };
   }
- }, []);
+}, []);
+
 
 
  async function ShareSong(song) {
   if (!song) return null;
-  console.log(song);
+  
 
   if (navigator.share) {
     try {
@@ -1982,6 +2034,8 @@ useEffect(() => {
     transition: 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out', // Smooth transitions
   }}
   className="fixed bottom-0 w-full max-w-md px-4 bg-white rounded-t-xl shadow-md dark:text-slate-400 dark:bg-zinc-900"
+    onTouchStart={handleTouchStart}
+    onTouchMove={handleTouchMove}
 >
 {currentSong && (
   <>
@@ -2035,7 +2089,7 @@ useEffect(() => {
 
 
     <div className="flex flex-col items-center py-4">
-      <div className='flex flex-col items-center h-[23.4rem] overflow-y-auto'>
+      <div className='flex flex-col items-center h-[23.4rem] overflow-y-auto scrollable-container'>
       <div className="flip-card w-72 h-72 rounded-lg shadow-lg">
         <div
           className={`flip-card-inner w-72 h-72 rounded-lg shadow-lg ${isFlipped ? 'rotate' : 'rotate-back'}`}
