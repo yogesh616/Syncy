@@ -17,7 +17,7 @@ import './playlist.css'
 import box from '../assets/box.json'
 import Sleep from './Sleep';
 import Animation from './Animation';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 
 let myFavorites = [];
 
@@ -59,6 +59,28 @@ const MusicDiscover = () => {
   const base_url = import.meta.env.VITE_API_URL;
 
   const [ recomandationSongs, setRecomandationSongs ] = useState([]);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+// preventing going back 
+	useEffect(() => {
+    const handleBackButton = (event) => {
+      if (isPlayerVisible) {
+        event.preventDefault(); // Prevent default back action
+        setIsPlayerVisible(false);
+        window.history.pushState(null, "", location.pathname); // Keep user on same page
+      } else {
+        navigate(-1); // Allow normal back navigation
+      }
+    };
+
+    window.history.pushState(null, "", location.pathname); // Push initial state
+    window.addEventListener("popstate", handleBackButton);
+
+    return () => {
+      window.removeEventListener("popstate", handleBackButton);
+    };
+  }, [isPlayerVisible, navigate, location.pathname]);
 
 
   async function FetchRecomandationSong(id = 'zDzWQVkb') {
